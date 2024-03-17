@@ -2,7 +2,6 @@ package runewidth
 
 import (
 	"os"
-	"strings"
 
 	"github.com/rivo/uniseg"
 )
@@ -215,15 +214,24 @@ func (c *Condition) Truncate(s string, w int, tail string) string {
 	return s[:pos] + tail
 }
 
-// TruncateLeft cuts w cells from the beginning of the `s`.
+// TruncateLeft returns string truncated to w cells, removing cells from the
+// left.
 func (c *Condition) TruncateLeft(s string, w int, prefix string) string {
-	if c.StringWidth(s) <= w {
-		return prefix
+	// Return string unaltered if less than or equal to width
+	sw := c.StringWidth(s)
+	if sw <= w {
+		return s
 	}
 
-	var width int
-	pos := len(s)
+	// Ok, string is going to be altered, it is going to have the prefix added
+	// to the front, so subtract the prefix's width from the desired width.
+	w -= c.StringWidth(prefix)
 
+	var pos int
+
+	// Iterate through graphemes of string. On each iteration, subtract
+	// character width from string width; if string width is within desired
+	// width then get byte position and break; otherwise keep iterating.
 	g := uniseg.NewGraphemes(s)
 	for g.Next() {
 		var chWidth int
@@ -234,20 +242,14 @@ func (c *Condition) TruncateLeft(s string, w int, prefix string) string {
 			}
 		}
 
-		if width+chWidth > w {
-			if width < w {
-				_, pos = g.Positions()
-				prefix += strings.Repeat(" ", width+chWidth-w)
-			} else {
-				pos, _ = g.Positions()
-			}
+		sw -= chWidth
 
+		if sw <= w {
+			_, pos = g.Positions()
 			break
 		}
-
-		width += chWidth
 	}
-
+	// Return prefix along with remaining characters of string.
 	return prefix + s[pos:]
 }
 
